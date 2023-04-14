@@ -1,10 +1,7 @@
 package red.jackf.jsst.features.worldcontainernames;
 
 import blue.endless.jankson.Comment;
-import com.google.common.collect.BiMap;
-import com.google.common.collect.HashBiMap;
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Multimap;
+import com.google.common.collect.*;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.math.Transformation;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerBlockEntityEvents;
@@ -29,7 +26,10 @@ import org.jetbrains.annotations.NotNull;
 import org.joml.Vector3f;
 import red.jackf.jsst.JSST;
 import red.jackf.jsst.command.OptionBuilders;
+import red.jackf.jsst.config.JSSTConfig;
 import red.jackf.jsst.features.Feature;
+
+import static red.jackf.jsst.JSST.CONFIG;
 
 public class WorldContainerNames extends Feature<WorldContainerNames.Config> {
     private static final String JSST_TAG = "jsst_world_container_name";
@@ -37,10 +37,14 @@ public class WorldContainerNames extends Feature<WorldContainerNames.Config> {
     private static final Float MAX_MULTIPLIER = 4f;
     private static final Float MIN_MULTIPLIER = 0.25f;
 
-    private final BiMap<BlockEntity, Display> displayCache = HashBiMap.create();
+    private final BiMap<BlockEntity, Display> displayCache = CONFIG.get().isMCMTPresent
+            ? Maps.synchronizedBiMap(HashBiMap.create())
+            : HashBiMap.create();
     private long nextUpdateSchedulerTick = -1;
 
-    private final Multimap<Long, Triple<BlockPos, ServerLevel, Boolean>> delayedChecks = HashMultimap.create();
+    private final Multimap<Long, Triple<BlockPos, ServerLevel, Boolean>> delayedChecks = CONFIG.get().isMCMTPresent
+            ? Multimaps.synchronizedMultimap(HashMultimap.create())
+            : HashMultimap.create();
 
     // Creates or updates a text entity
     private void createOrUpdateDisplay(BlockEntity be, ServerLevel level) {
@@ -105,7 +109,7 @@ public class WorldContainerNames extends Feature<WorldContainerNames.Config> {
         var linkedPos = ((JSSTLinkedToPos) display).jsst_getLinked();
         if (linkedPos != null) {
             var linkedBe = level.getBlockEntity(linkedPos);
-            if (linkedBe != null && displayCache.containsKey(linkedBe)) {
+            if (linkedBe != null && displayCache.containsKey(linkedBe) && !displayCache.containsValue(display)) {
                 displayCache.put(linkedBe, display);
                 return;
             }
@@ -174,7 +178,7 @@ public class WorldContainerNames extends Feature<WorldContainerNames.Config> {
 
     @Override
     public Config getConfig() {
-        return JSST.CONFIG.get().worldContainerNames;
+        return CONFIG.get().worldContainerNames;
     }
 
     @Override
@@ -193,7 +197,7 @@ public class WorldContainerNames extends Feature<WorldContainerNames.Config> {
                 display.setViewRange(BASE_VIEW_RANGE * getConfig().labelRangeMultiplier);
         }));
 
-        node.then(OptionBuilders.withEnum("facingMode", FacingMode.class, () -> getConfig().facingMode,  mode -> {
+        node.then(OptionBuilders.withEnum("facingMode", FacingMode.class, () -> getConfig().facingMode, mode -> {
             getConfig().facingMode = mode;
             for (Display display : displayCache.values())
                 display.setBillboardConstraints(mode.constraint);

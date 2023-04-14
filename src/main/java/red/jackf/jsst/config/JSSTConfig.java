@@ -20,6 +20,8 @@ public class JSSTConfig {
     public DisplayItems.Config displayItems = new DisplayItems.Config();
     public CommandDefinedDatapack.Config commandDefinedDatapack = new CommandDefinedDatapack.Config();
 
+    public final boolean isMCMTPresent = FabricLoader.getInstance().isModLoaded("mcmtfabric");
+
     public static class Handler {
         private static final Path PATH = FabricLoader.getInstance().getConfigDir().resolve("jsst.json5");
 
